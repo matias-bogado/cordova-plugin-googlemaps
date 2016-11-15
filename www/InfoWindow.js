@@ -11,16 +11,19 @@ var InfoWindow = function() {
 
 
     var frame = document.createElement("div");
+    frame.className = 'info-window--frame';
     frame.style.overflow="visible";
     frame.style.position="absolute";
     frame.style.display = "inline-block";
     self.set("frame", frame);
 
     var content = document.createElement("div");
+    content.className = 'info-window--content';
     content.style.display = "inline-block";
     content.style.padding = "5px";
 
     var contentFrame = document.createElement("div");
+    contentFrame.className = 'info-window--content-frame';
     contentFrame.style.display = "block";
     contentFrame.style.position = "relative";
     contentFrame.style.backgroundColor = "white";
@@ -31,11 +34,13 @@ var InfoWindow = function() {
     contentFrame.appendChild(content);
 
     var tailFrame = document.createElement("div");
+    tailFrame.className = 'info-window--tail-frame';
     tailFrame.style.position = "relative";
     tailFrame.style.marginTop = "-1px";
     frame.appendChild(tailFrame);
 
     var tailLeft = document.createElement("div");
+    tailLeft.className = 'info-window--tail-left';
     tailLeft.style.position = "absolute";
     tailLeft.style.left = "50%";
     tailLeft.style.height = "0px";
@@ -47,6 +52,7 @@ var InfoWindow = function() {
     tailFrame.appendChild(tailLeft);
 
     var tailRight = document.createElement("div");
+    tailRight.className = 'info-window--tail-right';
     tailRight.style.position = "absolute";
     tailRight.style.left = "50%";
     tailRight.style.height = "0px";
