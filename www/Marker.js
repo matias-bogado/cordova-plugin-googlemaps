@@ -38,7 +38,7 @@ var Marker = function(map, id, markerOptions) {
     //-----------------------------------------------
     // Sets the initialize option to each property
     //-----------------------------------------------
-    var ignores = ["hashCode", "id", "hashCode", "type"];
+    var ignores = ["map", "id", "hashCode", "type"];
     for (var key in markerOptions) {
         if (ignores.indexOf(key) === -1) {
             self.set(key, markerOptions[key]);
@@ -236,7 +236,7 @@ Marker.prototype.getSnippet = function() {
     return this.get('snippet');
 };
 Marker.prototype.setRotation = function(rotation) {
-    if (!rotation) {
+    if (typeof rotation !== "number") {
         console.log('missing value for rotation');
         return false;
     }

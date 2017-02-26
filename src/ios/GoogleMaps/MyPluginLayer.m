@@ -9,6 +9,8 @@
 #import "MyPluginLayer.h"
 
 NSOperationQueue *executeQueue;
+BOOL stopFlag = NO;
+BOOL hasCordovaStatusBar = NO;  // YES if the app has cordova-plugin-statusbar
 
 @implementation MyPluginLayer
 
@@ -42,31 +44,28 @@ NSOperationQueue *executeQueue;
   
     [self addSubview:self.pluginScrollView];
     [self addSubview:self.webView];
-    self.stopFlag = NO;
-    self.needUpdatePosition = NO;
+  
+  
+    self.redrawTimer = [NSTimer scheduledTimerWithTimeInterval:0.1
+                                target:self
+                                selector:@selector(resizeTask:)
+                                userInfo:nil
+                                repeats:YES];
+    
+    hasCordovaStatusBar = NSClassFromString(@"CDVStatusBar") != nil;
 
     return self;
 }
 
 - (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView
 {
-  self.needUpdatePosition = YES;
   CGPoint offset = self.webView.scrollView.contentOffset;
   self.pluginScrollView.contentOffset = offset;
-  
-  if (self.pluginScrollView.debugView.debuggable) {
-      [self.pluginScrollView.debugView setNeedsDisplay];
-  }
 }
 
 -(void)scrollViewDidEndDragging:(UIScrollView *)scrollView willDecelerate:(BOOL)decelerate {
-  self.needUpdatePosition = YES;
   CGPoint offset = self.webView.scrollView.contentOffset;
   self.pluginScrollView.contentOffset = offset;
-  
-  if (self.pluginScrollView.debugView.debuggable) {
-      [self.pluginScrollView.debugView setNeedsDisplay];
-  }
 }
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView {
   CGPoint offset = self.webView.scrollView.contentOffset;
@@ -79,8 +78,12 @@ NSOperationQueue *executeQueue;
 
 - (void)putHTMLElements:(NSDictionary *)elementsDic {
 
-  self.stopFlag = YES;
     [executeQueue addOperationWithBlock:^{
+        if (stopFlag) {
+            return;
+        }
+        stopFlag = YES;
+      
         CGRect rect = CGRectMake(0, 0, 0, 0);
         NSMutableDictionary *domInfo, *size;
         NSString *domId;
@@ -117,14 +120,11 @@ NSOperationQueue *executeQueue;
         }
      
         self.pluginScrollView.debugView.HTMLNodes = newBuffer;
-        self.needUpdatePosition = YES;
-        self.stopFlag = NO;
+        stopFlag = NO;
     }];
   
 }
 - (void)addMapView:(GoogleMapsViewController *)mapCtrl {
-  
-  self.stopFlag = YES;
 
   dispatch_async(dispatch_get_main_queue(), ^{
 
@@ -134,16 +134,11 @@ NSOperationQueue *executeQueue;
       // Add the mapView under the scroll view.
       [self.pluginScrollView attachView:mapCtrl.view];
       
-      [self updateViewPosition:mapCtrl];
-
-      self.stopFlag = NO;
+      //[self updateViewPosition:mapCtrl];
   });
 }
 
 - (void)removeMapView:(GoogleMapsViewController *)mapCtrl {
-      
-  self.stopFlag = YES;
-
   dispatch_async(dispatch_get_main_queue(), ^{
   
       // Remove the mapCtrl instance with mapId.
@@ -158,23 +153,37 @@ NSOperationQueue *executeQueue;
       if (self.pluginScrollView.debugView.debuggable) {
           [self.pluginScrollView.debugView setNeedsDisplay];
       }
-      self.stopFlag = NO;
   });
   
 }
 
+- (void)resizeTask:(NSTimer *)timer {
+  
+    if (stopFlag) {
+        return;
+    }
+    stopFlag = YES;
+    NSArray *keys=[self.pluginScrollView.debugView.mapCtrls allKeys];
+    NSString *mapId;
+    GoogleMapsViewController *mapCtrl;
+    
+    for (int i = 0; i < [keys count]; i++) {
+        mapId = [keys objectAtIndex:i];
+        mapCtrl = [self.pluginScrollView.debugView.mapCtrls objectForKey:mapId];
+        [self updateViewPosition:mapCtrl];
+    }
+    
+    if (self.pluginScrollView.debugView.debuggable == YES) {
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^() {
+
+            [self.pluginScrollView.debugView setNeedsDisplay];
+        });
+    }
+    stopFlag = NO;
+}
 
 - (void)updateViewPosition:(GoogleMapsViewController *)mapCtrl {
 
-      if (self.stopFlag) {
-          return;
-      }
-  
-      if (self.pluginScrollView.debugView.debuggable) {
-          [self.pluginScrollView.debugView setNeedsDisplay];
-      }
-    
-      self.stopFlag = YES;
 
       CGFloat zoomScale = self.webView.scrollView.zoomScale;
 
@@ -183,14 +192,12 @@ NSOperationQueue *executeQueue;
       offset.y *= zoomScale;
       [self.pluginScrollView setContentOffset:offset];
     
-      if (!mapCtrl.mapDivId && !self.needUpdatePosition) {
-          self.stopFlag = NO;
+      if (!mapCtrl.mapDivId) {
           return;
       }
 
       NSDictionary *domInfo = [self.pluginScrollView.debugView.HTMLNodes objectForKey:mapCtrl.mapDivId];
-      if (domInfo == nil && !self.needUpdatePosition) {
-          self.stopFlag = NO;
+      if (domInfo == nil) {
           return;
       }
   
@@ -207,7 +214,7 @@ NSOperationQueue *executeQueue;
       rect.size.height *= zoomScale;
       rect.origin.x += offset.x;
       rect.origin.y += offset.y;
-/*
+///*
       float webviewWidth = self.webView.frame.size.width;
       float webviewHeight = self.webView.frame.size.height;
       
@@ -234,12 +241,10 @@ NSOperationQueue *executeQueue;
               [mapCtrl.view removeFromSuperview];
           }
       }
-*/
+///*/
       mapCtrl.isRenderedAtOnce = YES;
 
-      self.stopFlag = NO;
-      if (!self.needUpdatePosition &&
-          rect.origin.x == mapCtrl.view.frame.origin.x &&
+      if (rect.origin.x == mapCtrl.view.frame.origin.x &&
           rect.origin.y == mapCtrl.view.frame.origin.y &&
           rect.size.width == mapCtrl.view.frame.size.width &&
           rect.size.height == mapCtrl.view.frame.size.height) {
@@ -258,7 +263,6 @@ NSOperationQueue *executeQueue;
 }
 
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
-    self.stopFlag = YES;
 
     float offsetX = self.webView.scrollView.contentOffset.x;
     float offsetY = self.webView.scrollView.contentOffset.y;
@@ -284,6 +288,12 @@ NSOperationQueue *executeQueue;
   
     NSDictionary *domInfo, *mapDivInfo;
     int domDepth, mapDivDepth;
+    if (hasCordovaStatusBar) {
+        UIApplication* app = [UIApplication sharedApplication];
+        if (app.isStatusBarHidden) {
+            point.y -= 20 * zoomScale;
+        }
+    }
   
     CGPoint clickPointAsHtml = CGPointMake(point.x * zoomScale, point.y * zoomScale);
   
@@ -376,13 +386,15 @@ NSOperationQueue *executeQueue;
       
         [mapCtrl execJS:@"javascript:cordova.fireDocumentEvent('plugin_touch', {});"];
       
-        self.stopFlag = NO;
         return hitView;
     }
-    self.stopFlag = NO;
   
+    
+    UIView *hitView =[self.webView hitTest:point withEvent:event];
+    //NSLog(@"--> (hit test) hit = %@", hitView.class);
     [mapCtrl execJS:@"javascript:cordova.fireDocumentEvent('plugin_touch', {});"];
-    return [super hitTest:point withEvent:event];
+    return hitView;
+    
 }
 
 @end

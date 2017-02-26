@@ -50,7 +50,6 @@ Map.prototype.getId = function() {
  * @desc Recalculate the position of HTML elements
  */
 Map.prototype.refreshLayout = function(event) {
-    cordova.fireDocumentEvent('plugin_touch', {});
     exec(null, null, this.id, 'resizeMap', []);
 };
 
@@ -66,6 +65,7 @@ Map.prototype.getMap = function(mapId, div, options) {
               options.camera.target = options.camera.latLng;
               delete options.camera.latLng;
           }
+          this.set('camera', options.camera);
           if (options.camera.target) {
             this.set('camera_target', options.camera.target);
           }
@@ -79,7 +79,7 @@ Map.prototype.getMap = function(mapId, div, options) {
             this.set('camera_tilt', options.camera.tilt);
           }
         }
-        args.push(params);
+        args.push(options);
     } else {
 
         var currentDiv = self.get("div");
@@ -89,6 +89,7 @@ Map.prototype.getMap = function(mapId, div, options) {
               options.camera.target = options.camera.latLng;
               delete options.camera.latLng;
           }
+          this.set('camera', options.camera);
           if (options.camera.target) {
             this.set('camera_target', options.camera.target);
           }
@@ -101,6 +102,9 @@ Map.prototype.getMap = function(mapId, div, options) {
           if (options.camera.tilt) {
             this.set('camera_tilt', options.camera.tilt);
           }
+        }
+        if (options.styles) {
+          options.styles = JSON.stringify(options.styles);
         }
         args.push(options);
 
@@ -133,6 +137,9 @@ Map.prototype.getMap = function(mapId, div, options) {
             div = div.parentNode;
         }
     }
+    
+    cordova.fireDocumentEvent('plugin_touch', {});
+
     exec(function() {
       // Prevent too much faster
       setTimeout(function() {
@@ -150,6 +157,7 @@ Map.prototype.setOptions = function(options) {
           options.camera.target = options.camera.latLng;
           delete options.camera.latLng;
       }
+      this.set('camera', options.camera);
       if (options.camera.target) {
         this.set('camera_target', options.camera.target);
       }
@@ -162,6 +170,9 @@ Map.prototype.setOptions = function(options) {
       if (options.camera.tilt) {
         this.set('camera_tilt', options.camera.tilt);
       }
+    }
+    if (options.styles) {
+      options.styles = JSON.stringify(options.styles);
     }
     exec(null, this.errorHandler, this.id, 'setOptions', [options]);
     return this;
@@ -192,6 +203,12 @@ Map.prototype.panBy = function(x, y) {
 Map.prototype.clear = function(callback) {
     var self = this;
 
+    // Close the active infoWindow
+    var active_marker_id = self.get("active_marker_id");
+    if (active_marker_id && active_marker_id in self.MARKERS) {
+      self.MARKERS[active_marker_id].trigger(event.INFO_CLOSE);
+    }
+    
     var clearObj = function(obj) {
         var ids = Object.keys(obj);
         var id;
@@ -736,7 +753,6 @@ Map.prototype.addPolyline = function(polylineOptions, callback) {
     polylineOptions.clickable = polylineOptions.clickable === true;
     polylineOptions.zIndex = polylineOptions.zIndex || 0;
     polylineOptions.geodesic = polylineOptions.geodesic === true;
-console.log(polylineOptions.points);
     exec(function(result) {
         polylineOptions.points = _orgs;
         polylineOptions.hashCode = result.hashCode;

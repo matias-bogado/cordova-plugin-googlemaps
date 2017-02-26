@@ -168,6 +168,9 @@ var InfoWindow = function() {
 utils.extend(InfoWindow, BaseClass);
 
 InfoWindow.prototype.close = function(marker) {
+    if (!marker) {
+        return;
+    }
     var map = marker.getMap();
     map.off("infoPosition_changed");
     marker.off("icon_changed");
@@ -185,6 +188,9 @@ InfoWindow.prototype.close = function(marker) {
 };
 
 InfoWindow.prototype.open = function(marker) {
+    if (!marker) {
+        return;
+    }
     var map = marker.getMap();
     map.bindTo("infoPosition", this);
     marker.bindTo("infoWindowAnchor", this);
